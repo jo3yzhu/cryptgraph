@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option go_package = "/proto";
+package simple;
+
+service Simple {
+  rpc Echo(EchoRequest) returns (EchoResponse) {}
+}
+
+message EchoRequest {
+  string name = 1;
+  int32 index = 2;
+}
+
+message EchoResponse {
+  string name = 1;
+  int32 index = 2;
+}
