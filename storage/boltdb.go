@@ -9,8 +9,8 @@ type BoltDB struct {
 	Conn *bolt.DB
 }
 
-func BoltDBOpen() (BoltDB, error) {
-	db, err := bolt.Open("my.db", 0600, nil)
+func BoltDBOpen(dbname string) (BoltDB, error) {
+	db, err := bolt.Open(dbname, 0600, nil)
 	if err != nil {
 		return BoltDB{}, err
 	}
@@ -21,10 +21,6 @@ func BoltDBOpen() (BoltDB, error) {
 func (db BoltDB) Init() error {
 	err := db.Conn.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(DOCUMENTS))
-		if err != nil {
-			return err
-		}
-		_, err = tx.CreateBucketIfNotExists([]byte(COUNTS))
 		if err != nil {
 			return err
 		}
@@ -39,7 +35,7 @@ func (db BoltDB) Init() error {
 }
 
 func (db BoltDB) Get(bucket string, id []byte) ([]byte, error) {
-	var value []byte
+	var value []byte = nil
 	// Use View() to enforce read-only access to BoltDB.
 	err := db.Conn.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
@@ -47,6 +43,9 @@ func (db BoltDB) Get(bucket string, id []byte) ([]byte, error) {
 			return errors.New("BoltDB: bucket not found")
 		}
 		temp := b.Get(id)
+		if temp == nil {
+			return errors.New("BoltDB: key not found")
+		}
 		value = make([]byte, len(temp))
 		copy(value, temp)
 		return nil

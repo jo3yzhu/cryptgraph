@@ -1,17 +1,14 @@
-package main
+package cryptkv
 
 import (
 	"context"
 	"github.com/jo3yzhu/cryptgraph/proto"
 	"github.com/jo3yzhu/cryptgraph/sse"
 	"github.com/jo3yzhu/cryptgraph/storage"
-	"google.golang.org/grpc"
-	"log"
-	"net"
 )
 
 const (
-	cryptkvPort = ":50051"
+	listenPort = ":50051"
 )
 
 type CryptKVService struct {
@@ -77,6 +74,9 @@ func (s *CryptKVService) Get(ctx context.Context, in *proto.GetRequest) (*proto.
 	h := sse.HMAC([]byte("COUNT"), in.IndexKey)
 
 	encryptedDocID, err := s.db.Get(storage.INDEX, h)
+
+	// the keyword doesn't exist
+	// log.Printf("Server Get encryptedDocID %v, err %s", encryptedDocID, err)
 	if err != nil {
 		return &proto.GetResponse{
 			Ok:   false,
@@ -85,7 +85,7 @@ func (s *CryptKVService) Get(ctx context.Context, in *proto.GetRequest) (*proto.
 	}
 
 	plainDocID, err := sse.Decrypt(encryptedDocID, in.EncryptKey)
-	if err != nil{
+	if err != nil {
 		return &proto.GetResponse{
 			Ok:   false,
 			Code: 1,
@@ -93,6 +93,8 @@ func (s *CryptKVService) Get(ctx context.Context, in *proto.GetRequest) (*proto.
 	}
 
 	documentVal, err := s.db.Get(storage.DOCUMENTS, plainDocID)
+
+	// the plain document key doesn't exist
 	if err != nil {
 		return &proto.GetResponse{
 			Ok:   false,
@@ -115,7 +117,7 @@ func (s *CryptKVService) Delete(ctx context.Context, in *proto.DeleteRequest) (*
 
 	// get index
 	encryptedDocID, err := s.db.Get(storage.INDEX, h)
-	if err != nil{
+	if err != nil {
 		return &proto.DeleteResponse{
 			Ok:   false,
 			Code: 0,
@@ -124,7 +126,7 @@ func (s *CryptKVService) Delete(ctx context.Context, in *proto.DeleteRequest) (*
 
 	// first doc id needed to be decrypted
 	plainDocID, err := sse.Decrypt(encryptedDocID, in.EncryptKey)
-	if err != nil{
+	if err != nil {
 		return &proto.DeleteResponse{
 			Ok:   false,
 			Code: 1,
@@ -151,31 +153,4 @@ func (s *CryptKVService) Delete(ctx context.Context, in *proto.DeleteRequest) (*
 		Code: 0,
 	}, nil
 
-}
-
-func main() {
-	lis, err := net.Listen("tcp", cryptkvPort)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	db, err := storage.BoltDBOpen("test.db")
-	if err != nil {
-		log.Fatalf("failed to open boltdb: %v", err)
-		return
-	}
-	err = db.Init()
-	if err != nil {
-		log.Fatalf("failed to init boltdb: %v", err)
-		return
-	}
-
-	grpcServer := grpc.NewServer()
-	proto.RegisterCryptKVServer(grpcServer, &CryptKVService{
-		db: db,
-	})
-
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
 }

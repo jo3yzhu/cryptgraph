@@ -3,7 +3,6 @@ package storage
 // buckets
 const (
 	DOCUMENTS = "documents"
-	COUNTS    = "counts"
 	INDEX     = "index"
 )
 
